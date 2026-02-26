@@ -71,29 +71,8 @@ class JobStatus(BaseModel):
 
 async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                # Redução de memória: roda renderer no mesmo processo
-                "--single-process",
-                "--no-zygote",
-                # Desativa recursos desnecessários para scraping
-                "--disable-extensions",
-                "--disable-background-networking",
-                "--disable-default-apps",
-                "--disable-sync",
-                "--disable-translate",
-                "--no-first-run",
-                "--safebrowsing-disable-auto-update",
-                "--disable-features=TranslateUI,IsolateOrigins,site-per-process",
-                # Limita heap V8 a 256 MB
-                "--js-flags=--max-old-space-size=256",
-            ]
-        )
+        # Firefox usa ~150MB menos que Chromium em modo headless
+        browser = await p.firefox.launch(headless=True)
         page = await browser.new_page()
 
         # Bloqueia recursos desnecessários para economizar RAM
