@@ -103,7 +103,7 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
             "snap.licdn.com", "googletagmanager.com", "doubleclick.net",
             "px.ads.linkedin.com",
         ]
-        TIPOS_BLOQUEADOS = {"image", "stylesheet", "font", "media", "other"}
+        TIPOS_BLOQUEADOS = {"image", "font", "media", "other"}
 
         async def bloquear_desnecessarios(route):
             if route.request.resource_type in TIPOS_BLOQUEADOS:
