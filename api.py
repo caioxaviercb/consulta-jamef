@@ -78,9 +78,43 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
+                # Redução de memória: roda renderer no mesmo processo
+                "--single-process",
+                "--no-zygote",
+                # Desativa recursos desnecessários para scraping
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-default-apps",
+                "--disable-sync",
+                "--disable-translate",
+                "--no-first-run",
+                "--safebrowsing-disable-auto-update",
+                "--disable-features=TranslateUI,IsolateOrigins,site-per-process",
+                # Limita heap V8 a 256 MB
+                "--js-flags=--max-old-space-size=256",
             ]
         )
         page = await browser.new_page()
+
+        # Bloqueia recursos desnecessários para economizar RAM
+        DOMINIOS_RASTREAMENTO = [
+            "analytics.google.com", "google-analytics.com", "facebook.com",
+            "clarity.ms", "kaspersky-labs.com", "linkedin.com",
+            "snap.licdn.com", "googletagmanager.com", "doubleclick.net",
+            "px.ads.linkedin.com",
+        ]
+        TIPOS_BLOQUEADOS = {"image", "stylesheet", "font", "media", "other"}
+
+        async def bloquear_desnecessarios(route):
+            if route.request.resource_type in TIPOS_BLOQUEADOS:
+                await route.abort()
+                return
+            if any(d in route.request.url for d in DOMINIOS_RASTREAMENTO):
+                await route.abort()
+                return
+            await route.continue_()
+
+        await page.route("**/*", bloquear_desnecessarios)
 
         try:
             await page.goto(
