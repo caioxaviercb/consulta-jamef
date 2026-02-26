@@ -22,8 +22,8 @@ CNPJ_PADRAO = "48775191000190"
 # Configurações via variáveis de ambiente (defina no Render: Settings > Environment)
 JAMEF_USERNAME = os.getenv("JAMEF_USERNAME", "")
 JAMEF_PASSWORD = os.getenv("JAMEF_PASSWORD", "")
-JAMEF_AUTH_URL  = os.getenv("JAMEF_AUTH_URL",  "https://api-qa.jamef.com.br/auth/v1/login")
-JAMEF_RASTR_URL = os.getenv("JAMEF_RASTR_URL", "https://api-qa.jamef.com.br/consulta/v1/rastreamento")
+JAMEF_AUTH_URL  = os.getenv("JAMEF_AUTH_URL",  "https://api.jamef.com.br/auth/v1/login")
+JAMEF_RASTR_URL = os.getenv("JAMEF_RASTR_URL", "https://api.jamef.com.br/consulta/v1/rastreamento")
 
 # Cache do token JWT em memória
 _token: dict = {"value": None, "expires_at": 0.0}
