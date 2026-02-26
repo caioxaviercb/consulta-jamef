@@ -17,6 +17,13 @@ app.add_middleware(
 
 CNPJ_PADRAO = "48775191000190"
 
+# Timeouts maiores para ambiente cloud (CPU limitada no free tier)
+TIMEOUT_SELECTOR  = 30_000   # 30s para elementos aparecerem
+TIMEOUT_NAVEGACAO = 45_000   # 45s para navegação de página
+TIMEOUT_POPUP     = 20_000   # 20s para pop-up abrir
+WAIT_CURTO        = 3_000    # 3s de espera entre ações
+WAIT_LONGO        = 5_000    # 5s após clique de pesquisa
+
 
 # ── Modelos de resposta ───────────────────────────────────────────────────────
 
@@ -43,37 +50,41 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"]
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",   # evita crash em containers com /dev/shm pequeno
+                "--disable-gpu",
+                "--single-process",
+            ]
         )
         page = await browser.new_page()
 
         try:
             # 1. Acessar o site
-            await page.goto("https://www.jamef.com.br/", wait_until="domcontentloaded")
-            await page.wait_for_timeout(2000)
+            await page.goto(
+                "https://www.jamef.com.br/",
+                wait_until="domcontentloaded",
+                timeout=TIMEOUT_NAVEGACAO
+            )
+            await page.wait_for_timeout(WAIT_CURTO)
 
             # 2. Preencher NF e pesquisar
-            await page.wait_for_selector('input[placeholder*="nota"]', timeout=10000)
+            await page.wait_for_selector('input[placeholder*="nota"]', timeout=TIMEOUT_SELECTOR)
             await page.fill('input[placeholder*="nota"]', numero_nf)
             await page.click('button[type="submit"]')
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(WAIT_LONGO)
 
             # 3. Preencher CNPJ e pesquisar
-            await page.wait_for_selector('input[placeholder*="CPF"]', timeout=10000)
+            await page.wait_for_selector('input[placeholder*="CPF"]', timeout=TIMEOUT_SELECTOR)
             await page.fill('input[placeholder*="CPF"]', cnpj)
             await page.click('button[type="submit"]')
-            await page.wait_for_url("**/rastrear/**", timeout=15000)
-            await page.wait_for_timeout(2000)
+            await page.wait_for_url("**/rastrear/**", timeout=TIMEOUT_NAVEGACAO)
+            await page.wait_for_timeout(WAIT_LONGO)
 
             # 4. Capturar dados da página de resultado
             dados_pagina = await page.evaluate("""
                 () => {
-                    const getText = (selector) => {
-                        const el = document.querySelector(selector);
-                        return el ? el.textContent.trim() : null;
-                    };
-
-                    // Previsão de entrega: busca o <span> dentro do elemento
                     let previsao = null;
                     for (const el of document.querySelectorAll('*')) {
                         if (el.childElementCount === 1 &&
@@ -83,7 +94,6 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
                         }
                     }
 
-                    // Origem e Destino
                     const headings = [...document.querySelectorAll('h3, h4, strong, b')];
                     let origem = null, destino = null;
                     for (const h of headings) {
@@ -99,8 +109,8 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
 
             # 5. Abrir pop-up Histórico
             await page.click('button.button.bg-red')
-            await page.wait_for_selector('.popup-content .content', timeout=8000)
-            await page.wait_for_timeout(1000)
+            await page.wait_for_selector('.popup-content .content', timeout=TIMEOUT_POPUP)
+            await page.wait_for_timeout(WAIT_CURTO)
 
             # 6. Capturar histórico do pop-up
             historico = await page.evaluate("""
@@ -137,7 +147,6 @@ async def scrape_jamef(numero_nf: str, cnpj: str) -> dict:
                 }
             """)
 
-            # Status atual = primeiro item do histórico
             status_atual = historico[0].get("status") if historico else None
 
             return {
